@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net (Pillar 1)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE HARDENED HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrappedAdmin(email) {
+      return email == 'admin@fixmycity.gov' || email == 'anujsawant26@gmail.com';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // --- COLLECTION RULES ---
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && isAdmin();
+      
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                    incoming().uid == request.auth.uid &&
+                    incoming().email is string &&
+                    incoming().fullName is string &&
+                    incoming().notificationsEnabled is bool &&
+                    incoming().createdAt is string &&
+                    (!('name' in incoming()) || incoming().name is string) &&
+                    (!('avatarUrl' in incoming()) || incoming().avatarUrl is string) &&
+                    (!('avatar' in incoming()) || incoming().avatar is string) &&
+                    (!('lastLogin' in incoming()) || incoming().lastLogin is string) &&
+                    (
+                      incoming().role == 'citizen' || 
+                      (
+                        incoming().role == 'admin' && 
+                        (
+                          incoming().email == 'admin@fixmycity.gov' || 
+                          incoming().email == 'anujsawant26@gmail.com' ||
+                          (request.auth.token != null && 'email' in request.auth.token && (request.auth.token.email == 'admin@fixmycity.gov' || request.auth.token.email == 'anujsawant26@gmail.com'))
+                        )
+                      )
+                    );
+                    
+      allow update: if isSignedIn() && request.auth.uid == userId && 
+                    incoming().uid == existing().uid &&
+                    incoming().role == existing().role &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().email == existing().email &&
+                    incoming().fullName is string &&
+                    incoming().notificationsEnabled is bool &&
+                    (!('name' in incoming()) || incoming().name is string) &&
+                    (!('avatarUrl' in incoming()) || incoming().avatarUrl is string) &&
+                    (!('avatar' in incoming()) || incoming().avatar is string) &&
+                    (!('lastLogin' in incoming()) || incoming().lastLogin is string);
+                    
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // 2. Issues Collection
+    match /issues/{issueId} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && 
+                    incoming().userId == request.auth.uid &&
+                    incoming().userName is string && incoming().userName.size() <= 250 &&
+                    incoming().title is string && incoming().title.size() <= 500 &&
+                    incoming().description is string && incoming().description.size() <= 10000 &&
+                    incoming().category is string && incoming().category.size() <= 200 &&
+                    incoming().location is string && incoming().location.size() <= 1000 &&
+                    incoming().status == 'reported' &&
+                    incoming().severity in ['low', 'medium', 'high', 'critical', 'Low', 'Medium', 'High', 'Critical'] &&
+                    incoming().assignedDepartment is string && incoming().assignedDepartment.size() <= 250 &&
+                    incoming().aiSummary is string && incoming().aiSummary.size() <= 2000 &&
+                    incoming().aiExplanation is string && incoming().aiExplanation.size() <= 5000 &&
+                    incoming().timeline is list &&
+                    incoming().comments is list &&
+                    incoming().createdAt is string && incoming().createdAt.size() <= 100 &&
+                    incoming().updatedAt is string && incoming().updatedAt.size() <= 100;
+                    
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        // Community Engagement updates (any signed-in citizen can add comments, verifications, upvote/support)
+        (
+          incoming().userId == existing().userId &&
+          incoming().userName == existing().userName &&
+          incoming().title == existing().title &&
+          incoming().description == existing().description &&
+          incoming().category == existing().category &&
+          incoming().location == existing().location &&
+          incoming().status == existing().status &&
+          incoming().severity == existing().severity &&
+          incoming().assignedDepartment == existing().assignedDepartment &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'comments', 'timeline', 'updatedAt', 'verifications', 'supportedBy'
+          ])
+        ) ||
+        // Owner actions (confirm/reopen their own issue)
+        (
+          existing().userId == request.auth.uid &&
+          incoming().userId == existing().userId &&
+          incoming().userName == existing().userName &&
+          incoming().title == existing().title &&
+          incoming().description == existing().description &&
+          incoming().category == existing().category &&
+          incoming().location == existing().location &&
+          incoming().severity == existing().severity &&
+          incoming().assignedDepartment == existing().assignedDepartment &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'citizenConfirmation', 'citizenReviewNotes', 
+            'timeline', 'updatedAt', 'comments', 'verifications', 'supportedBy'
+          ])
+        )
+      );
+      
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // 3. Notifications Collection
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      // Never allow clients to create notification documents (must be generated by Cloud Functions via Admin SDK)
+      allow create: if false;
+      
+      allow update: if isSignedIn() && existing().userId == request.auth.uid &&
+                    incoming().userId == existing().userId &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+                    
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

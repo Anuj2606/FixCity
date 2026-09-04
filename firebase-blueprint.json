@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile in the system",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "fullName": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["citizen", "admin"] },
+        "phone": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "avatar": { "type": "string" },
+        "notificationsEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "lastLogin": { "type": "string" }
+      },
+      "required": ["uid", "email", "fullName", "role", "notificationsEnabled", "createdAt"]
+    },
+    "IssueReport": {
+      "title": "IssueReport",
+      "description": "A reported civic issue",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "location": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["reported", "under_review", "in_progress", "resolved"] },
+        "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "assignedDepartment": { "type": "string" },
+        "aiSummary": { "type": "string" },
+        "aiExplanation": { "type": "string" },
+        "timeline": { "type": "array" },
+        "comments": { "type": "array" },
+        "verifications": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "userName", "title", "description", "category", "location", "status", "severity", "assignedDepartment", "aiSummary", "aiExplanation", "timeline", "comments", "createdAt", "updatedAt"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "A user notification",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "issueId": { "type": "string" }
+      },
+      "required": ["userId", "title", "message", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "issues/{issueId}": {
+      "schema": "IssueReport",
+      "description": "Civic issue reports"
+    },
+    "notifications/{notificationId}": {
+      "schema": "NotificationItem",
+      "description": "User notifications"
+    }
+  }
+}

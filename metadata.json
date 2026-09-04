@@ -1,0 +1,6 @@
+{
+  "name": "FixMyCity",
+  "description": "Civic Issue Management Portal enabling citizens to report issues and municipalities to manage, route, and track them.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
