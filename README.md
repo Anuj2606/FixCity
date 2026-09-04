@@ -6,8 +6,7 @@ FixMyCity is a civic issue reporting and municipal management platform designed 
 
 ## 🌐 Live Application URLs
 
-- **Live Production App:** [https://ais-pre-gx2g7khmhd4wvkdex7l5t7-567328846610.asia-southeast1.run.app](https://ais-pre-gx2g7khmhd4wvkdex7l5t7-567328846610.asia-southeast1.run.app)
-- **Development App Preview:** [https://ais-dev-gx2g7khmhd4wvkdex7l5t7-567328846610.asia-southeast1.run.app](https://ais-dev-gx2g7khmhd4wvkdex7l5t7-567328846610.asia-southeast1.run.app)
+- **Live Production App:** https://fixmycity-app-150360520684.asia-southeast1.run.app
 
 ---
 
