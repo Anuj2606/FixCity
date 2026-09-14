@@ -852,7 +852,8 @@ JSON response schema:
     return "1-2 Weeks";
   }
 
-  // Google Maps Platform proxy endpoints
+  // OpenStreetMap Nominatim proxy endpoints. Keeping these requests server-side
+  // provides a stable API shape for the client and lets us set a descriptive User-Agent.
   app.get('/api/places-autocomplete', async (req, res) => {
     try {
       const input = req.query.input as string;
@@ -860,31 +861,20 @@ JSON response schema:
         return res.json({ predictions: [] });
       }
 
-      const apiKey = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
-      if (!apiKey || apiKey === 'YOUR_API_KEY') {
-        console.warn("GOOGLE_MAPS_PLATFORM_KEY is missing or placeholder. Using smart local demo autocomplete predictions.");
-        const mockDb = [
-          { description: "Near DY Patil University Main Gate, Lohegaon, Pune, Maharashtra, India", place_id: "mock-pune-dy" },
-          { description: "DY Patil University, Ambi, Pune, Maharashtra, India", place_id: "mock-pune-dy-ambi" },
-          { description: "San Francisco Civic Center, San Francisco, CA, USA", place_id: "mock-sf-civic" },
-          { description: "Golden Gate Park, San Francisco, CA, USA", place_id: "mock-sf-ggp" },
-          { description: "Union Square, San Francisco, CA, USA", place_id: "mock-sf-union" },
-          { description: "Pune Railway Station, Pune, Maharashtra, India", place_id: "mock-pune-station" },
-          { description: "Shaniwar Wada, Shaniwar Peth, Pune, Maharashtra, India", place_id: "mock-pune-wada" }
-        ];
-        const filtered = mockDb.filter(item => 
-          item.description.toLowerCase().includes(input.toLowerCase())
-        );
-        return res.json({ predictions: filtered });
-      }
-
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}`;
-      const response = await fetch(url);
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=${encodeURIComponent(input)}`;
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'FixMyCity/1.0 (civic issue reporting application)' }
+      });
       if (!response.ok) {
-        throw new Error(`Google Places API returned status ${response.status}`);
+        throw new Error(`OpenStreetMap Nominatim returned status ${response.status}`);
       }
-      const data = await response.json();
-      return res.json(data);
+      const results = await response.json() as Array<{ display_name: string; lat: string; lon: string }>;
+      return res.json({
+        predictions: results.map(result => ({
+          description: result.display_name,
+          place_id: `osm:${result.lat},${result.lon}`
+        }))
+      });
     } catch (error: any) {
       console.error("Error in /api/places-autocomplete:", error);
       return res.status(500).json({ error: error.message || 'Internal server error' });
@@ -900,68 +890,21 @@ JSON response schema:
         return res.status(400).json({ error: 'Either address or place_id parameter is required' });
       }
 
-      const apiKey = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
-      if (!apiKey || apiKey === 'YOUR_API_KEY') {
-        console.warn("GOOGLE_MAPS_PLATFORM_KEY is missing or placeholder. Using smart local demo geocoder.");
-        if (placeId === 'mock-pune-dy' || (address && address.toLowerCase().includes('dy patil university main gate'))) {
+      if (placeId && placeId.startsWith('osm:')) {
+        const [lat, lng] = placeId.slice(4).split(',').map(Number);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
           return res.json({
             results: [{
-              formatted_address: "Near DY Patil University Main Gate, Pune, Maharashtra, India",
-              geometry: { location: { lat: 18.6482, lng: 73.7587 } }
+              formatted_address: address || `${lat}, ${lng}`,
+              geometry: { location: { lat, lng } }
             }]
           });
         }
-        if (placeId === 'mock-pune-dy-ambi') {
-          return res.json({
-            results: [{
-              formatted_address: "DY Patil University, Ambi, Pune, Maharashtra, India",
-              geometry: { location: { lat: 18.7360, lng: 73.6653 } }
-            }]
-          });
-        }
-        if (placeId === 'mock-sf-civic' || (address && address.toLowerCase().includes('civic center'))) {
-          return res.json({
-            results: [{
-              formatted_address: "San Francisco Civic Center, San Francisco, CA, USA",
-              geometry: { location: { lat: 37.7793, lng: -122.4192 } }
-            }]
-          });
-        }
-        if (placeId === 'mock-sf-ggp' || (address && address.toLowerCase().includes('golden gate'))) {
-          return res.json({
-            results: [{
-              formatted_address: "Golden Gate Park, San Francisco, CA, USA",
-              geometry: { location: { lat: 37.7694, lng: -122.4862 } }
-            }]
-          });
-        }
-        if (placeId === 'mock-sf-union' || (address && address.toLowerCase().includes('union square'))) {
-          return res.json({
-            results: [{
-              formatted_address: "Union Square, San Francisco, CA, USA",
-              geometry: { location: { lat: 37.7876, lng: -122.4074 } }
-            }]
-          });
-        }
-        if (placeId === 'mock-pune-station' || (address && address.toLowerCase().includes('railway station'))) {
-          return res.json({
-            results: [{
-              formatted_address: "Pune Railway Station, Pune, Maharashtra, India",
-              geometry: { location: { lat: 18.5289, lng: 73.8744 } }
-            }]
-          });
-        }
-        if (placeId === 'mock-pune-wada' || (address && address.toLowerCase().includes('shaniwar wada'))) {
-          return res.json({
-            results: [{
-              formatted_address: "Shaniwar Wada, Pune, Maharashtra, India",
-              geometry: { location: { lat: 18.5196, lng: 73.8553 } }
-            }]
-          });
-        }
+      }
 
+      if (address) {
         const coordRegex = /(-?\d+\.\d+),\s*(-?\d+\.\d+)/;
-        const match = (address || '').match(coordRegex);
+        const match = address.match(coordRegex);
         if (match) {
           return res.json({
             results: [{
@@ -971,27 +914,22 @@ JSON response schema:
           });
         }
 
-        return res.json({
-          results: [{
-            formatted_address: address || "Pune, Maharashtra, India",
-            geometry: { location: { lat: 18.5204, lng: 73.8567 } }
-          }]
-        });
       }
-
-      let url = '';
-      if (placeId) {
-        url = `https://maps.googleapis.com/maps/api/geocode/json?place_id=${encodeURIComponent(placeId)}&key=${apiKey}`;
-      } else {
-        url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
-      }
-
-      const response = await fetch(url);
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=${encodeURIComponent(address || '')}`;
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'FixMyCity/1.0 (civic issue reporting application)' }
+      });
       if (!response.ok) {
-        throw new Error(`Google Geocoding API returned status ${response.status}`);
+        throw new Error(`OpenStreetMap Nominatim returned status ${response.status}`);
       }
-      const data = await response.json();
-      return res.json(data);
+      const results = await response.json() as Array<{ display_name: string; lat: string; lon: string }>;
+      return res.json({
+        results: results.map(result => ({
+          formatted_address: result.display_name,
+          place_id: `osm:${result.lat},${result.lon}`,
+          geometry: { location: { lat: Number(result.lat), lng: Number(result.lon) } }
+        }))
+      });
     } catch (error: any) {
       console.error("Error in /api/geocode:", error);
       return res.status(500).json({ error: error.message || 'Internal server error' });

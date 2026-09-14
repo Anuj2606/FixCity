@@ -15,11 +15,12 @@ FixMyCity is a civic issue reporting and municipal management platform designed 
 ### 1. Citizen Reporting Portal
 - **Location-Aware Submissions:** Auto-detects GPS coordinates with browser geolocation or allows manual address search.
 - **Visual Evidence Upload:** Upload and preview on-site photos of reported infrastructure issues.
-- **AI-Powered Civic Assistance:** Integrates Gemini 2.5 to analyze issue descriptions, auto-categorize complaints, detect severity levels, and suggest actionable summaries.
+- **AI-Powered Civic Assistance:** Integrates Gemini 3.5 Flash to analyze issue descriptions, auto-categorize complaints, detect severity levels, and suggest actionable summaries.
 - **Tracking & History:** Citizens can view real-time status updates, track resolution timelines, and access their submission history under "My Reports".
 
 ### 2. Interactive Community Map (Leaflet + OpenStreetMap)
 - **Geospatial Visualization:** 100% open-source mapping powered by Leaflet and OpenStreetMap tiles with zero proprietary API key requirements.
+- **Address Search:** Location autocomplete and geocoding use the OpenStreetMap Nominatim service through the Express API proxy; no Google Maps or Places credentials are required.
 - **Dynamic Filtering:** Filter civic pins by status (Reported, Under Review, In Progress, Resolved) and category.
 - **Interactive Pins & Popups:** Click on map markers to view issue thumbnails, severity indicators, and quick links to full report details.
 
@@ -63,7 +64,7 @@ FixMyCity is built as a full-stack web application combining a React SPA fronten
 │                                      │  │                              │
 │  - Vite SSR/SPA Middleware           │  │  - Firebase Authentication   │
 │  - Server-side Gemini AI Proxy       │  │  - Cloud Firestore Database  │
-│  - Geocoding & Places Helper         │  │    (Issues, Users, Notifs)   │
+│  - Nominatim Geocoding Proxy         │  │    (Issues, Users, Notifs)   │
 │  - Strict API Key Protection         │  │  - Firestore Security Rules  │
 └───────────────────┬──────────────────┘  └──────────────┬───────────────┘
                     │                                    │
@@ -115,10 +116,10 @@ FixMyCity is built as a full-stack web application combining a React SPA fronten
 | Layer | Technologies |
 |---|---|
 | **Frontend** | React 19, TypeScript, Tailwind CSS v4, Motion, Lucide React |
-| **Mapping** | Leaflet, OpenStreetMap (`tile.openstreetmap.org`) |
+| **Mapping & Geocoding** | Leaflet, OpenStreetMap tiles (`tile.openstreetmap.org`), Nominatim address search |
 | **Charts & Metrics**| Recharts |
 | **Backend & Server**| Node.js, Express, `tsx`, `esbuild` |
-| **AI Engine** | Google GenAI SDK (`@google/genai`), Gemini 2.5 Flash |
+| **AI Engine** | Google GenAI SDK (`@google/genai`), Gemini 3.5 Flash |
 | **Database & Auth** | Firebase Cloud Firestore, Firebase Authentication |
 | **Serverless Functions** | Firebase Cloud Functions v2 (Node.js runtime) |
 | **Security** | Granular Firestore Security Rules (`firestore.rules`), strict `.gitignore` |
@@ -143,7 +144,7 @@ This repository strictly implements secure credential handling:
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/fixmycity.git
+git clone https://github.com/Anuj2606/FixCity.git
 cd fixmycity
 ```
 
@@ -162,6 +163,8 @@ Fill in the necessary variables:
 GEMINI_API_KEY="your_gemini_api_key_here"
 APP_URL="http://localhost:3000"
 ```
+
+The map and report-location search do not require a Google Maps API key. The application uses OpenStreetMap tiles and Nominatim geocoding.
 
 ### 4. Run the development server
 ```bash
