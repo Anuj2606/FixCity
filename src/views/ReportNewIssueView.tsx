@@ -17,6 +17,7 @@ export const ReportNewIssueView: React.FC = () => {
   const [suggestions, setSuggestions] = useState<{ description: string; place_id: string }[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [detectingLocation, setDetectingLocation] = useState(false);
 
@@ -334,6 +335,9 @@ export const ReportNewIssueView: React.FC = () => {
 
   const handleLocationChange = (val: string) => {
     setLocation(val);
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
     if (!val) {
       setLatitude(undefined);
       setLongitude(undefined);
@@ -345,8 +349,18 @@ export const ReportNewIssueView: React.FC = () => {
       setLatitude(undefined);
       setLongitude(undefined);
     }
-    fetchSuggestions(val);
+    searchTimerRef.current = setTimeout(() => {
+      fetchSuggestions(val);
+    }, 350);
   };
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
